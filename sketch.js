@@ -1,133 +1,161 @@
-const Engine = Matter.Engine;
-const World = Matter.World;
-const Bodies = Matter.Bodies;
-const Constraint = Matter.Constraint;
+/*--------------------------------------------------------*/
+var PLAY = 1;
+var END = 0;
+var WIN = 2;
+var gameState = PLAY;
 
-var engine, world;
-var ball,ground;
-var stand1,stand2;
-var slingShot;
-var rock_img;
+var trex, trex_running, trex_collided;
+var jungle, invisiblejungle;
+
+var obstaclesGroup, obstacle1;
+
+var score=0;
+
+var gameOver, restart;
 
 function preload(){
-  rock_img=loadImage("rock.png");
+  kangaroo_running =   loadAnimation("assets/kangaroo1.png","assets/kangaroo2.png","assets/kangaroo3.png");
+  kangaroo_collided = loadAnimation("assets/kangaroo1.png");
+  jungleImage = loadImage("assets/bg.png");
+  shrub1 = loadImage("assets/shrub1.png");
+  shrub2 = loadImage("assets/shrub2.png");
+  shrub3 = loadImage("assets/shrub3.png");
+  obstacle1 = loadImage("assets/stone.png");
+  gameOverImg = loadImage("assets/gameOver.png");
+  restartImg = loadImage("assets/restart.png");
+  jumpSound = loadSound("assets/jump.wav");
+  collidedSound = loadSound("assets/collided.wav");
 }
+
 function setup() {
+  createCanvas(800, 400);
 
-  createCanvas(900,400);
-  engine = Engine.create();
-  world = engine.world;
-  Engine.run(engine);
+  jungle = createSprite(400,100,400,20);
+  jungle.addImage("jungle",jungleImage);
+  jungle.scale=0.3
+  jungle.x = width /2;
+
+  kangaroo = createSprite(50,200,20,50);
+  kangaroo.addAnimation("running", kangaroo_running);
+  kangaroo.addAnimation("collided", kangaroo_collided);
+  kangaroo.scale = 0.15;
+  kangaroo.setCollider("circle",0,0,300)
+
+  invisibleGround = createSprite(400,350,1600,10);
+  invisibleGround.visible = false;
   
-  ground = new Ground();
-  stand1 = new Stand(390,300,250,10);
-  stand2 = new Stand(700,200,200,10);
- 
-  //level one
-  block1 = new Block(300,275,30,40);
-  block2 = new Block(330,275,30,40);
-  block3 = new Block(360,275,30,40);
-  block4 = new Block(390,275,30,40);
-  block5 = new Block(420,275,30,40);
-  block6 = new Block(450,275,30,40);
-  block7 = new Block(480,275,30,40);
-  //level two
-  block8 = new Block(330,235,30,40);
-  block9 = new Block(360,235,30,40);
-  block10 = new Block(390,235,30,40);
-  block11 = new Block(420,235,30,40);
-  block12 = new Block(450,235,30,40);
-  //level three
-  block13 = new Block(360,195,30,40);
-  block14 = new Block(390,195,30,40);
-  block15 = new Block(420,195,30,40);
-  //top
-  block16 = new Block(390,155,30,40);
-
-  //set 2 for second stand
-  //level one
-  blocks1 = new Block(640,175,30,40);
-  blocks2 = new Block(670,175,30,40);
-  blocks3 = new Block(700,175,30,40);
-  blocks4 = new Block(730,175,30,40);
-  blocks5 = new Block(760,175,30,40);
-  //level two
-  blocks6 = new Block(670,135,30,40);
-  blocks7 = new Block(700,135,30,40);
-  blocks8 = new Block(730,135,30,40);
-  //top
-  blocks9 = new Block(700,95,30,40);
-
-  //ball holder with slings
-  ball = Bodies.circle(50,200,20);
-  World.add(world,ball);
-
-  slingShot = new Slingshot(this.ball,{x:100,y:200});
+  shrubsGroup = new Group();
+  obstaclesGroup = new Group();
+  
+  score = 0;
 
 }
 
 function draw() {
-  background(56,44,44); 
+  background(255);
+
+  // kangaroo.x=camera.positionX-270;
+  // kangaroo.x=Camera.position.x-270;
+   kangaroo.x=camera.position.x-270;
+  // kangaroo.x=Camera.Position.X-270;
+   
+  if (gameState===PLAY){
+
+    jungle.velocityX=-3
+
+    if(jungle.x<100)
+    {
+       jungle.x=400
+    }
+   console.log(kangaroo.y)
+    if(keyDown("space")&& kangaroo.y>270) {
+      jumpSound.play();
+      kangaroo.velocityY = -16;
+    }
+  
+    kangaroo.velocityY = kangaroo.velocityY + 0.8
+    spawnShrubs();
+    spawnObstacles();
+
+    kangaroo.collide(invisibleGround);
+    
+    if(obstaclesGroup.isTouching(kangaroo)){
+      collidedSound.play();
+      gameState = END;
+    }
+    if(shrubsGroup.isTouching(kangaroo)){
+
+      shrubsGroup.destroyEach();
+    }
+  }
+  else if (gameState === END) {
+    
+    kangaroo.velocityY = 0;
+    jungle.velocityX = 0;
+    obstaclesGroup.setVelocityXEach(0);
+    shrubsGroup.setVelocityXEach(0);
+
+    kangaroo.changeAnimation("collided",kangaroo_collided);
+    
+    obstaclesGroup.setLifetimeEach(-1);
+    shrubsGroup.setLifetimeEach(-1);
+    
+  }
+
+  
+  drawSprites();
+
+
+}
+
+function spawnShrubs() {
+
+  if (frameCount % 150 === 0) {
+
+    // var shrub = createSprite(camera.position+500,330,40,10);
+     var shrub = createSprite(camera.position.x+500,330,40,10);
+    // var shrub = createSprite(camera.positionX+500,330,40,10);
+    // var shrub = createSprite(Camera.position.x+500,330,40,10);
+
+    shrub.velocityX = -(6 + 3*score/100)
+    shrub.scale = 0.6;
+
+    var rand = Math.round(random(1,3));
+    switch(rand) {
+      case 1: shrub.addImage(shrub1);
+              break;
+      case 2: shrub.addImage(shrub2);
+              break;
+      case 3: shrub.addImage(shrub3);
+              break;
+      default: break;
+    }
+         
+    shrub.scale = 0.05;
+    shrub.lifetime = 400;
+    
+    shrub.setCollider("rectangle",0,0,shrub.width/2,shrub.height/2)
+    shrubsGroup.add(shrub);
+    
+  }
+  
+}
+
+function spawnObstacles() {
+  if(frameCount % 120 === 0) {
+
+    // var obstacle = createSprite(camera.Position.X+400,330,40,40);
+    // var obstacle = createSprite(Camera.Position.x+400,330,40,40);
+     var obstacle = createSprite(camera.position.x+400,330,40,40);
+    // var obstacle = createSprite(camera.position.x.400,330,40,40);
+
+    obstacle.setCollider("rectangle",0,0,200,200)
+    obstacle.addImage(obstacle1);
+    obstacle.velocityX = -(6 + 3*score/100)
+    obstacle.scale = 0.15;   
  
-  imageMode(CENTER);
-  // write image() to display the polygon image 
-  image(rock_img ,ball.position.x,ball.position.y,40,40);
-
-
-  stroke(0,0,0);
-  fill("white");
-  textSize(20);
-  fill("lightyellow");
-  text("Drag the Hexagonal Stone and Release it, to launch it towards the blocks",100,30);
-
-  ground.display();
-  stand1.display();
-  stand2.display();
-
-  strokeWeight(2);
-  stroke(0,0,0);
-  
-  fill("skyblue");
-  block1.display();
-  block2.display();
-  block3.display();
-  block4.display();
-  block5.display();
-  block6.display();
-  block7.display();
-  fill("pink");
-  block8.display();
-  block9.display();
-  block10.display();
-  block11.display();
-  block12.display();
-  fill("turquoise");
-  block13.display();
-  block14.display();
-  block15.display();
-  fill("grey");
-  block16.display();
-  fill("skyblue");
-  blocks1.display();
-  blocks2.display();
-  blocks3.display();
-  blocks4.display();
-  blocks5.display();
-  fill("turquoise");
-  blocks6.display();
-  blocks7.display();
-  blocks8.display();
-  fill("pink")
-  blocks9.display();
-  fill("gold");
-
-
-  
-  slingShot.display();
-}
-function mouseDragged(){
-  Matter.Body.setPosition(this.ball,{x:mouseX,y:mouseY});
-}
-function mouseReleased(){
-  slingShot.fly();
+    obstacle.lifetime = 400;
+    obstaclesGroup.add(obstacle);
+    
+  }
 }
